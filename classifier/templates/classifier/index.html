@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Классификация овощей</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f8f8;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 2em auto;
+            padding: 2em;
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            text-align: center;
+        }
+        h1 {
+            color: #444;
+            margin-bottom: 1em;
+        }
+        form {
+            display: inline-block;
+            margin-bottom: 2em;
+            padding: 1em;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+        input[type="file"] {
+            margin-right: 1em;
+            padding: 0.5em;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button {
+            padding: 0.6em 1.2em;
+            border: none;
+            border-radius: 4px;
+            background-color: #5cb85c;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #4cae4c;
+        }
+        .uploaded-image-container {
+            max-width: 500px;
+            margin: 1em auto;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+         .predictions-container {
+            margin-top: 2em;
+            text-align: left;
+             padding: 1em;
+             border-radius: 8px;
+             background-color: #f0f0f0;
+             box-shadow: 0 0 10px rgba(0,0,0,0.05);
+         }
+        .predictions-container h2 {
+            color: #444;
+            margin-bottom: 0.5em;
+        }
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        li {
+            padding: 0.7em;
+            margin-bottom: 0.5em;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+       li span {
+           font-weight: bold;
+           margin-right: 1em;
+           transition: color 0.3s ease; /* Плавное изменение цвета для текста */
+       }
+        .probability {
+            color: #555;
+            padding-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Классификатор овощей</h1>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" name="image" required>
+            <button type="submit">Распознать</button>
+        </form>
+        {% if uploaded_file_url %}
+            <div class="uploaded-image-container">
+                <img src="{{ uploaded_file_url }}" alt="Загруженное изображение">
+            </div>
+
+            {% if predictions %}
+                <div class="predictions-container">
+                    <h2>Результаты распознавания:</h2>
+                    <ul id="prediction-list">
+                        {% for class_name, probability in predictions %}
+                            <li data-probability="{{ probability }}" style="opacity: 0;">
+                                <span class="animated-text">{{ class_name }}</span>
+                                <span class="probability animated-probability">0.000</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const predictionList = document.getElementById('prediction-list');
+        if (predictionList) {
+            const listItems = Array.from(predictionList.querySelectorAll('li')); // Преобразуем в массив
+
+            const animateItem = (item, index) => {
+                const textSpan = item.querySelector('.animated-text');
+                const probabilitySpan = item.querySelector('.animated-probability');
+                const finalProbability = parseFloat(item.getAttribute('data-probability'));
+                const finalName = textSpan.textContent;
+
+                 let tempNameIndex = 0;
+                 const allNames = ['Фасоль', 'Брокколи', 'Капуста', 'Перец', 'Морковь', 'Цветная капуста', 'Огурец', 'Картофель', 'Тыква', 'Редис', 'Помидор'];
+
+
+
+                  const textAnimationInterval = setInterval(() => {
+                        textSpan.style.color = 'gray'
+                         textSpan.textContent = allNames[tempNameIndex % allNames.length];
+                        tempNameIndex++;
+                         if (tempNameIndex > allNames.length * 3){
+                              clearInterval(textAnimationInterval);
+                             textSpan.style.color = '#333';
+                             textSpan.textContent = finalName
+                         }
+                     }, 50);
+
+                // После анимации текста, запускаем анимацию вероятности
+                setTimeout(() => {
+                    let currentProbability = 0.000;
+                    const animationDuration = 1000;
+                    const stepTime = 16;
+                    const steps = Math.ceil(animationDuration / stepTime);
+                    const increment = finalProbability / steps;
+
+
+                     item.style.transition = 'opacity 0.5s ease-in-out';
+                     item.style.opacity = 1;
+
+
+
+                    function animateProbability() {
+                       if (currentProbability < finalProbability) {
+                           currentProbability += increment;
+                           probabilitySpan.textContent = currentProbability.toFixed(3);
+                           requestAnimationFrame(animateProbability);
+                       } else {
+                           probabilitySpan.textContent = finalProbability.toFixed(3);
+                       }
+                   }
+                   animateProbability();
+
+
+
+                 }, allNames.length * 3 * 50);
+
+            };
+
+
+          const animateItemsSequentially = async () => {
+              for (let i = 0; i < listItems.length; i++) {
+                    await new Promise((resolve) => {
+                      animateItem(listItems[i], i);
+                        setTimeout(resolve, 1500) // Задержка между анимацией
+                    })
+
+                }
+          };
+
+            animateItemsSequentially();
+
+        }
+    });
+
+    </script>
+</body>
+</html>
